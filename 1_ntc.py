@@ -7,7 +7,7 @@ import sqlite3
 conn = sqlite3.connect("articles.sqlite3")
 
 
-def search_news(keyword='산업은행', start_date='1991-01-01', end_date='1999-12-31', page=1):
+def search_news(keyword='산업은행', start_date='1990-01-01', end_date='1999-12-31', page=1):
     #      http://news.naver.com/main/search/search.nhn?detail=1&query=%BB%EA%BE%F7%C0%BA%C7%E0&startDate=1990-01-01&endDate=1999-12-31
     url = "http://news.naver.com/main/search/search.nhn"
     params = {
