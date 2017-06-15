@@ -6,47 +6,56 @@ from konlpy.tag import Twitter
 import nltk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
-from matplotlib import rc
+from matplotlib import rc, font_manager
 from gensim.models.word2vec import Word2Vec
 import tkinter as Tk
 import gensim
 import sklearn
 from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans
+import numpy as np
+import platform
 
 
-rc('font', family='AppleGothic')
+if platform.system() == 'Darwin':
+    rc('font', family='AppleGothic')
+elif platform.system() == 'Windows':
+    font_name = font_manager.FontProperties(fname="c:/Windows/Fonts/malgun.ttf").get_name()
+    rc('font', family=font_name)
+
 plt.rcParams['axes.unicode_minus'] = False
 
 t = Twitter()
 
 files = [f for f in os.listdir('articles') if f.endswith('.news')]
 count = 0
-contents = ""
+contents = []
 for file in files:
     f = open("articles/"+file,mode='r',encoding='utf-8')
-    contents += f.read()
+    contents.append(f.read())
     print("READ : %s" % "articles/"+file )
 
     count +=1
-    if count == 2000 :
-        break
+    #if count == 100 :
+    #    break
 
 print("형태소 분석 시작")
 pos_doc = []
 sentence = []
-for p in t.pos(contents):
-    if p[1] == 'Josa' or p[1] =='Punctuation' or p[1] == 'Suffix' or p[1] == 'Eomi' or p[1] == 'Number':
-        continue
-    else :
-        sentence.append( "/".join(p) )
+for a_content in contents:
+    for p in t.pos(a_content):
+        if p[1] == 'Josa' or p[1] =='Punctuation' or p[1] == 'Suffix' or p[1] == 'Eomi' \
+                or p[1] == 'Number' or p[1] == 'Verb' or p[1] =='Adjective' or p[1] == 'Adverb':
+            continue
+        else :
+            sentence.append( "/".join(p) )
 
-    if len(sentence) == 10 :
-        pos_doc.append(sentence)
-        sentence = []
+    pos_doc.append(sentence)
+    sentence = []
 
 pos_doc.append(sentence)
 
-model = Word2Vec(pos_doc,sg=1, size=400, window=50, min_count=100)
+model = Word2Vec(pos_doc,sg=0, size=700, window=500, min_count=800)
 tsne = sklearn.manifold.TSNE(n_components=2, random_state=0)
 all_word_vectors_matrix_2d = tsne.fit_transform(model.wv.syn0)
 
@@ -73,10 +82,8 @@ from matplotlib.figure import Figure
 f = Figure(figsize=(5, 4), dpi=100)
 ax = f.add_subplot(111)
 
-from sklearn.cluster import KMeans
-import numpy as np
 
-kmeans = KMeans(n_clusters=10 if len(points) >= 10 else len(points), n_jobs=-1, random_state=0)
+kmeans = KMeans(n_clusters=10, n_init=1, random_state=0)
 # cluster_idx = kmeans.fit_predict(points[["x","y"]])
 kmeans.fit(points[["x", "y"]])
 cluster_idx = kmeans.labels_
@@ -102,7 +109,7 @@ text_labels = []
 for i, point in points.iterrows():
     t = ax.text(point.x + 0.0001, point.y, point.word, fontsize=10, alpha=0.8,
                 url="http://www.instagram.com/" + point.word)
-    t.set_visible(True)
+    t.set_visible(False)
     text_labels.append(t)
 
 # a tk.DrawingArea
@@ -122,6 +129,27 @@ toolbar = NavigationToolbar2TkAgg(canvas, root)
 toolbar.update()
 canvas._tkcanvas.pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
 canvas.mpl_connect('key_press_event', on_key_event)
+
+bottom_panel = Tk.PanedWindow(master=root)
+bottom_panel.pack(side=Tk.BOTTOM)
+
+def toggle_label():
+    if btnToggle.config('text')[-1] == '라벨 감추기':
+        btnToggle.config(text='라벨 보여주기')
+    else:
+        btnToggle.config(text='라벨 감추기')
+
+    if btnToggle.config('text')[-1] == '라벨 감추기':
+        for label in text_labels:
+            label.set_visible(True)
+    else:
+        for label in text_labels:
+            label.set_visible(False)
+    canvas.draw()
+
+
+btnToggle = Tk.Button(master=bottom_panel, text="라벨 보여주기", width=12, command=toggle_label)
+btnToggle.pack(side=Tk.LEFT)
 
 
 Tk.mainloop()
