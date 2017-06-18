@@ -23,24 +23,29 @@ for row in cur:
             aid = var_str.split('=')[1]
 
     dir_postfix = oid + "_" + aid + ".news"
-    if os.path.isfile("articles/"+dir_postfix) :
+
+    # 파일을 다운로드 합시다!
+    print(oid, aid)
+
+    res = requests.get(row[1])
+    bs = BeautifulSoup(res.text, 'html.parser')
+    title = bs.select("h3#articleTitle")[0].text
+    base_dtm = bs.select("div.sponsor > span.t11")[0].text
+    contents = ""
+
+    for elmnt in bs.select("div#articleBodyContents")[0].contents:
+        if type(elmnt) == NavigableString:
+            if str(elmnt).strip() != '':
+                contents += str(elmnt).strip() + "\n"
+
+    sub_dir = base_dtm[0:4]
+    if os.path.isdir("articles/"+sub_dir) == False :
+        os.mkdir("articles/"+ sub_dir)
+    dest_file="articles/"+sub_dir+"/"+dir_postfix
+    if os.path.isfile(dest_file) :
         continue
     else :
-        # 파일을 다운로드 합시다!
-        print(oid, aid)
-
-        res = requests.get(row[1])
-        bs = BeautifulSoup(res.text,'html.parser')
-        title = bs.select("h3#articleTitle")[0].text
-        base_dtm = bs.select("div.sponsor > span.t11")[0].text
-        contents = ""
-
-        for elmnt in bs.select("div#articleBodyContents")[0].contents:
-            if type(elmnt) == NavigableString :
-                if str(elmnt).strip() != '':
-                    contents += str(elmnt).strip() + "\n"
-
-        f = open("articles/"+dir_postfix,'w',encoding="utf-8")
+        f = open(dest_file,'w',encoding="utf-8")
         f.write(title+"\n")
         f.write(base_dtm+"\n")
         f.write(contents)
