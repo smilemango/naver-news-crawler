@@ -23,10 +23,10 @@ def search_news(keyword='산업은행', start_date='2000-01-01', end_date='2000-
     return r
 
 
-start_date = '2001-01-01'
+start_date = '2017-01-01'
 end_date = '2017-12-31'
 s_dtm = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-next_dtm = s_dtm + datetime.timedelta(days=1)
+next_dtm = s_dtm
 while True:
 
     page = 1
@@ -44,6 +44,15 @@ while True:
             qry = "INSERT OR IGNORE INTO article_title (url, title) VALUES ('%s','%s')" % ( str(tit.attrs['href']).replace("'","''"),str(tit.text).replace("'","''"))
             cur.execute(qry)
             count += 1
+
+        for tit in bs.select("ul.related_lst > li > a"):
+            if 'http://sports.' in str(tit.attrs['href']):
+                #스포츠 뉴스는 거른다.
+                continue
+            qry = "INSERT OR IGNORE INTO article_title (url, title) VALUES ('%s','%s')" % (str(tit.attrs['href']).replace("'", "''"), str(tit.text).replace("'", "''"))
+            cur.execute(qry)
+            count += 1
+
         conn.commit()
         print("%d rows inserted." % count )
         #for tag in bs.select("div.paging > a"):
