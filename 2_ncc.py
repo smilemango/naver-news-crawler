@@ -118,21 +118,20 @@ for row in cur:
         title = bs.select("div.area_title > h1")[0].text
         #<p><span>최종수정</span> 2017.06.18 13:39
         #<span class="f">기사입력</span> 2017.06.18 13:39</p>
-        lst_base_dtm = str(bs.select("div.area_title > p")[0].contents[-1]).strip().replace('.','-')
-        base_dtm = lst_base_dtm[0] + " " + lst_base_dtm[1]
-        contents = ""
+        base_dtm = str(bs.select("div.area_title > p")[0].contents[-1]).strip().replace('.','-')
+        contents = bs.select("div.article > div")[0].text
 
-        for elmnt in bs.select("div.article > div")[0].contents:
-            if type(elmnt) == NavigableString:
-                if str(elmnt).strip() != '':
-                    contents += str(elmnt).strip() + "\n"
 
     elif news_site == 'heraldcorp':
         text = res.text
         bs = BeautifulSoup(text, 'html.parser')
         title = bs.select("div.view_top_t2 > ul > li > h1")[0].text
 
-        base_dtm = bs.select("div.view_top_t2 > ul > li.ellipsis")[0].contents[0]
+        raw_base_dtm = bs.select("div.view_top_t2 > ul > li.ellipsis")[0].contents[0]
+        if str(raw_base_dtm).startswith('기사입력 ') :
+            raw_base_dtm= str(raw_base_dtm)[5:].strip()
+        base_dtm = raw_base_dtm
+
         contents = ""
 
         for elmnt in bs.select("#articleText")[0].contents:
