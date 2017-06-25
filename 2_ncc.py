@@ -97,14 +97,19 @@ for row in cur:
 
     if news_site == "naver":
         bs = BeautifulSoup(res.text, 'html.parser')
-        title = bs.select("h3#articleTitle")[0].text
-        base_dtm = bs.select("div.sponsor > span.t11")[0].text
-        contents = ""
-
-        for elmnt in bs.select("div#articleBodyContents")[0].contents:
-            if type(elmnt) == NavigableString:
-                if str(elmnt).strip() != '':
-                    contents += str(elmnt).strip() + "\n"
+        try:
+            title = bs.select("h3#articleTitle")[0].text
+            base_dtm = bs.select("div.sponsor > span.t11")[0].text
+            contents = ""
+            for elmnt in bs.select("div#articleBodyContents")[0].contents:
+                if type(elmnt) == NavigableString:
+                    if str(elmnt).strip() != '':
+                        contents += str(elmnt).strip() + "\n"
+        except IndexError as e:
+            #연예면 기사의 경우 형식이 조금 다르다
+            title = bs.select("h2.end_tit")[0].text
+            base_dtm = bs.select("div#content > div.end_ct > div > div.article_info > span > em")[0].text.replace('.','-')
+            contents = bs.select("div#articeBody")[0].text
 
     elif news_site == "gjdream":
         text = res.text.encode('latin-1').decode('cp949')
@@ -181,10 +186,16 @@ for row in cur:
     elif news_site == 'newsis':
         text = res.text
         bs = BeautifulSoup(text, 'html.parser')
-        title = bs.select("div.article_tbx > h1")[0].text
+        try:
+            title = bs.select("div.article_tbx > h1")[0].text
 
-        base_dtm = bs.select("div.date")[0].text[3:]
-        contents = bs.select("div.article_bx > div.view_text > div#textBody")[0].text
+            base_dtm = bs.select("div.date")[0].text[3:]
+            contents = bs.select("div.article_bx > div.view_text > div#textBody")[0].text
+        except IndexError as e :
+            if "GISA FILE NOT EXISTS" in bs.select("p.mgt18")[0].text:
+                #기사가 삭제됨
+                print("Article was deleted.")
+                continue
 
     else:
         print("Unknown news site. FATAL ERROR")
