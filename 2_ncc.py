@@ -51,6 +51,11 @@ for row in cur:
             news_site = "asiae"
             #http://view.asiae.co.kr/news/view.htm?idxno=2017061813385889015
             dir_postfix = "asiae_"+ params_str[0].split('=')[1] + ".news"
+        elif o.hostname == 'news.heraldcorp.com':
+            # 헤럴드경제
+            news_site = "heraldcorp"
+            # http://news.heraldcorp.com/village/view.php?ud=201706141855012313875_12
+            dir_postfix = "heraldcorp_" + params_str[0].split('=')[1] + ".news"
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
             exit(-1)
@@ -122,6 +127,18 @@ for row in cur:
                 if str(elmnt).strip() != '':
                     contents += str(elmnt).strip() + "\n"
 
+    elif news_site == 'heraldcorp':
+        text = res.text
+        bs = BeautifulSoup(text, 'html.parser')
+        title = bs.select("div.view_top_t2 > ul > li > h1")[0].text
+
+        base_dtm = bs.select("div.view_top_t2 > ul > li.ellipsis")[0].contents[0]
+        contents = ""
+
+        for elmnt in bs.select("#articleText")[0].contents:
+            if type(elmnt) == NavigableString:
+                if str(elmnt).strip() != '':
+                    contents += str(elmnt).strip() + "\n"
     else:
         print("Unknown news site. FATAL ERROR")
         exit(-1)
