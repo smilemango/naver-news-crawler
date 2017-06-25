@@ -12,6 +12,7 @@ conn = sqlite3.connect("articles.sqlite3")
 cur = conn.cursor()
 cur.execute("SELECT * FROM article_title")
 
+next = True
 for row in cur:
     params_str = str(row[1]).split('?')[1].split("&")
     oid = None
@@ -22,10 +23,26 @@ for row in cur:
         elif 'aid=' in var_str:
             aid = var_str.split('=')[1]
 
+    #에러난 이후부터 시작하도록 하자!
+    if next :
+        if aid == "0003594208" :
+            next = False
+        else:
+            continue
+
+
     dir_postfix = oid + "_" + aid + ".news"
 
     # 파일을 다운로드 합시다!
-    print(oid, aid)
+    print("Try downloading oid=%s, aid=%s" %( oid, aid))
+
+    # 파일을 다 읽고나서 존재여부를 체크하는것보다 로컬에서 먼저 검색하고나서 체크하는 것이 효율적인듯 하다.
+    for root, dirs, files in os.walk("articles"):
+        for file in files:
+            if str(file) == dir_postfix:
+                print("File is alread exists : %s " % str(os.path.join(root, file)))
+                print("SKIP")
+                continue
 
     res = requests.get(row[1])
     bs = BeautifulSoup(res.text, 'html.parser')

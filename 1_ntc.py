@@ -23,8 +23,8 @@ def search_news(keyword='산업은행', start_date='2000-01-01', end_date='2000-
     return r
 
 
-start_date = '2017-01-01'
-end_date = '2017-12-31'
+start_date = '1990-01-01'
+end_date = '2017-06-20'
 s_dtm = datetime.datetime.strptime(start_date, "%Y-%m-%d")
 next_dtm = s_dtm
 while True:
