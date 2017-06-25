@@ -11,10 +11,10 @@ from urllib.parse import urlparse
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title")
+cur.execute("SELECT * FROM article_title where is_downloaded = 0 or is_downloaded is null;")
 
 next = True
-for row in cur:
+for row in cur.fetchall():
     try:
         params_str = str(row[1]).split('?')[1].split("&")
     except IndexError as e:
@@ -27,13 +27,6 @@ for row in cur:
             oid = var_str.split('=')[1]
         elif 'aid=' in var_str:
             aid = var_str.split('=')[1]
-
-    #에러난 이후부터 시작하도록 하자!
-    if next :
-        if aid == "0003594208" :
-            next = False
-        else:
-            continue
 
     news_site = None
     dir_postfix = None
@@ -91,6 +84,9 @@ for row in cur:
             if str(file) == dir_postfix:
                 print("File is alread exists : %s " % str(os.path.join(root, file)))
                 print("SKIP")
+                qry = "UPDATE article_title set is_downloaded = 1 where id = %d ;" % row[0]
+                cur.execute(qry)
+                conn.commit()
                 continue
 
     res = requests.get(row[1])
@@ -125,15 +121,21 @@ for row in cur:
 
     elif news_site == "news1":
         bs = BeautifulSoup(res.text, 'html.parser')
-        title = bs.select("div.title > h2")[0].text
-        lst_base_dtm = bs.select("div.info")[0].contents[-1].strip().split(' ')[0:2]
-        base_dtm = lst_base_dtm[0] + " " + lst_base_dtm[1]
-        contents = ""
+        try:
+            title = bs.select("div.title > h2")[0].text
+            lst_base_dtm = bs.select("div.info")[0].contents[-1].strip().split(' ')[0:2]
+            base_dtm = lst_base_dtm[0] + " " + lst_base_dtm[1]
+            contents = ""
 
-        for elmnt in bs.select("div#articles_detail")[0].contents:
-            if type(elmnt) == NavigableString:
-                if str(elmnt).strip() != '':
-                    contents += str(elmnt).strip() + "\n"
+            for elmnt in bs.select("div#articles_detail")[0].contents:
+                if type(elmnt) == NavigableString:
+                    if str(elmnt).strip() != '':
+                        contents += str(elmnt).strip() + "\n"
+        except IndexError as e :
+            if not "http404" in bs.select("img#img")[0].attrs["src"]:
+                #page not found
+                continue
+
 
     elif news_site == 'asiae':
         text = res.text.encode('latin-1').decode('cp949')
@@ -206,14 +208,17 @@ for row in cur:
         os.mkdir("articles/" + sub_dir)
     dest_file = "articles/" + sub_dir + "/" + dir_postfix
 
-    if os.path.isfile(dest_file) :
-        continue
-    else :
+    if not os.path.isfile(dest_file) :
         f = open(dest_file,'w',encoding="utf-8")
         f.write(title+"\n")
         f.write(base_dtm+"\n")
         f.write(contents)
         f.close()
+
+    qry = "UPDATE article_title set is_downloaded = 1 where id = %d ;" % row[0]
+    cur.execute(qry)
+    conn.commit()
+
 
 
 
