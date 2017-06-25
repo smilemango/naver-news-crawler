@@ -15,7 +15,11 @@ cur.execute("SELECT * FROM article_title")
 
 next = True
 for row in cur:
-    params_str = str(row[1]).split('?')[1].split("&")
+    try:
+        params_str = str(row[1]).split('?')[1].split("&")
+    except IndexError as e:
+        params_str = [str(row[1]).split('/')[-1] ]
+
     oid = None
     aid = None
     for var_str in params_str:
@@ -62,7 +66,15 @@ for row in cur:
             # http://www.mt.co.kr/view/mtview.php?type=1&no=2017060815500512576&outlink=1
             dir_postfix = news_site + "_" + params_str[1].split('=')[1] + ".news"
 
+        elif o.hostname == 'www.newsis.com':
+            # 뉴시스
+            news_site = "newsis"
+            # http://www.newsis.com/view/?id=NISX20170615_0000013759&cID=10812&pID=10800
+            dir_postfix = news_site + "_" + params_str[0].split('=')[1] + ".news"
+
         else :
+            #일단 넘기자
+            continue
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
             exit(-1)
     else :
@@ -146,10 +158,33 @@ for row in cur:
     elif news_site == 'mt':
         text = res.text.encode('latin-1').decode('cp949')
         bs = BeautifulSoup(text, 'html.parser')
-        title = bs.select("div#article > h1")[0].text
+        try:
+            title = bs.select("div#article > h1")[0].text
 
-        base_dtm = bs.select("span.num")[0].text[2:].replace('.','-')
-        contents = bs.select("div#textBody")[0].text
+            base_dtm = bs.select("span.num")[0].text[2:].replace('.','-')
+            contents = bs.select("div#textBody")[0].text
+        except IndexError as e:
+            #다른 페이지로 이동하게 되는 경우이다. 왜이리 번거롭게 만들어놨냐
+            #<script>location.href="http://the300.mt.co.kr/newsView.html?no=2016100411237629327&ref=%3A%2F%2F"</script>
+            next_url = bs.contents[0].text.split('"')[1]
+            res = requests.get(next_url)
+            text = res.text.encode('latin-1').decode('cp949')
+            bs = BeautifulSoup(text, 'html.parser')
+            title = bs.select("div#article > h1")[0].text
+            try:
+                base_dtm = bs.select("span.date")[0].text.replace('.','-')
+            except IndexError as e2:
+                base_dtm = bs.select("span.num")[0].text[2:].replace('.','-')
+            contents = bs.select("div#textBody")[0].text
+
+
+    elif news_site == 'newsis':
+        text = res.text
+        bs = BeautifulSoup(text, 'html.parser')
+        title = bs.select("div.article_tbx > h1")[0].text
+
+        base_dtm = bs.select("div.date")[0].text[3:]
+        contents = bs.select("div.article_bx > div.view_text > div#textBody")[0].text
 
     else:
         print("Unknown news site. FATAL ERROR")
