@@ -56,6 +56,12 @@ for row in cur:
             news_site = "heraldcorp"
             # http://news.heraldcorp.com/village/view.php?ud=201706141855012313875_12
             dir_postfix = "heraldcorp_" + params_str[0].split('=')[1] + ".news"
+        elif o.hostname == 'www.mt.co.kr':
+            # 머니투데이
+            news_site = "mt"
+            # http://www.mt.co.kr/view/mtview.php?type=1&no=2017060815500512576&outlink=1
+            dir_postfix = news_site + "_" + params_str[1].split('=')[1] + ".news"
+
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
             exit(-1)
@@ -121,7 +127,6 @@ for row in cur:
         base_dtm = str(bs.select("div.area_title > p")[0].contents[-1]).strip().replace('.','-')
         contents = bs.select("div.article > div")[0].text
 
-
     elif news_site == 'heraldcorp':
         text = res.text
         bs = BeautifulSoup(text, 'html.parser')
@@ -133,11 +138,19 @@ for row in cur:
         base_dtm = raw_base_dtm
 
         contents = ""
-
         for elmnt in bs.select("#articleText")[0].contents:
             if type(elmnt) == NavigableString:
                 if str(elmnt).strip() != '':
                     contents += str(elmnt).strip() + "\n"
+
+    elif news_site == 'mt':
+        text = res.text.encode('latin-1').decode('cp949')
+        bs = BeautifulSoup(text, 'html.parser')
+        title = bs.select("div#article > h1")[0].text
+
+        base_dtm = bs.select("span.num")[0].text[2:].replace('.','-')
+        contents = bs.select("div#textBody")[0].text
+
     else:
         print("Unknown news site. FATAL ERROR")
         exit(-1)
