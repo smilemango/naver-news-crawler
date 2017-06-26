@@ -12,7 +12,7 @@ from urllib.parse import parse_qs
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://news.mk.co.k%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.fnnews.c%';")
 
 next = True
 for row in cur.fetchall():
@@ -77,6 +77,14 @@ for row in cur.fetchall():
             news_site = "mk"
             # http://news.mk.co.kr/newsRead.php?&year=2017&no=357698
             dir_postfix = news_site + "_" + url_qry.get('year')[0] + "_" + url_qry.get('no')[0] + ".news"
+
+        elif o.hostname == 'www.fnnews.com':
+            # 파이낸셜뉴스
+            news_site = "fnnews"
+            # http://www.fnnews.com/news/201705312021291702
+            dir_postfix = news_site + "_" + params_str[0] + ".news"
+
+
 
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
@@ -225,6 +233,14 @@ for row in cur.fetchall():
 
         base_dtm = bs.select("div#top_header > div > div > div.news_title_author > ul > li.lasttime")[0].text.split(' :')[1].strip().replace('.','-')
         contents = bs.select("div#article_body")[0].text
+
+    elif news_site == 'fnnews':# finanncial news
+        text = res.text
+        bs = BeautifulSoup(text, 'html.parser')
+        title = bs.select("div#container > div > div.article_head > h1")[0].text
+
+        base_dtm = bs.select("div#container > div > div.article_head > div > em")[1].text.split(' :  ')[1].replace('.','-')
+        contents = bs.select("div#article_content > div")[0].text
 
     else:
         print("Unknown news site. FATAL ERROR")
