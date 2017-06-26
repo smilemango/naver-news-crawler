@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where is_downloaded = 0 or is_downloaded is null;")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.edaily.c%';")
 
 next = True
 for row in cur.fetchall():
@@ -65,9 +65,13 @@ for row in cur.fetchall():
             # http://www.newsis.com/view/?id=NISX20170615_0000013759&cID=10812&pID=10800
             dir_postfix = news_site + "_" + params_str[0].split('=')[1] + ".news"
 
+        elif o.hostname == 'www.edaily.co.kr':
+            # 이데일리
+            news_site = "edaily"
+            # http://www.edaily.co.kr/news/newspath.asp?newsid=04391926615962048
+            dir_postfix = news_site + "_" + params_str[0].split('=')[1] + ".news"
+
         else :
-            #일단 넘기자
-            continue
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
             exit(-1)
     else :
@@ -198,6 +202,14 @@ for row in cur.fetchall():
                 #기사가 삭제됨
                 print("Article was deleted.")
                 continue
+
+    elif news_site == 'edaily':
+        text = res.text.encode('latin-1').decode('cp949')
+        bs = BeautifulSoup(text, 'html.parser')
+        title = bs.select("div#viewarea > h4")[0].text
+
+        base_dtm = bs.select("div#viewarea > div.pr > p.newsdate")[0].text.split('|')[1].replace('.','-')
+        contents = bs.select("span#viewcontent_inner")[0].text
 
     else:
         print("Unknown news site. FATAL ERROR")
