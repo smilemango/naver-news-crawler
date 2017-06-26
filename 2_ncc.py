@@ -7,17 +7,20 @@ from bs4 import BeautifulSoup
 from bs4 import NavigableString
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
+import httputil
+import io
+import chardet
 
 
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.fnnews.c%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.hankyung.%';")
 
 next = True
 for row in cur.fetchall():
 
-    url_qry = parse_qs(row[1])
+    url_qry = parse_qs(row[1].split('?')[1])
 
     if len(url_qry) == 0 :
         #parse_qs로 파싱이 안되는 경우
@@ -84,7 +87,11 @@ for row in cur.fetchall():
             # http://www.fnnews.com/news/201705312021291702
             dir_postfix = news_site + "_" + params_str[0] + ".news"
 
-
+        elif o.hostname == 'www.hankyung.com':
+            # 한국경제
+            news_site = "hankyung"
+            # http://www.hankyung.com/news/app/newsview.php?aid=2017053129361
+            dir_postfix = news_site + "_" + url_qry.get('aid')[0] + ".news"
 
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
@@ -241,6 +248,41 @@ for row in cur.fetchall():
 
         base_dtm = bs.select("div#container > div > div.article_head > div > em")[1].text.split(' :  ')[1].replace('.','-')
         contents = bs.select("div#article_content > div")[0].text
+
+    elif news_site == 'hankyung':# 한국경제
+        # 얘네는 응답이 chunked reponse로 온다.
+        # 이경우
+        # [byte수]\r\n
+        # 데이터
+        # \r\n[byte수]\r\n
+        # 데이터
+        # 반복...
+        # \r\n0\r\n\r\n
+
+        type = None
+        if res.text.startswith('<!'):
+            if res.request.url.startswith('http://hei'):
+                type = 'hei'
+                text = res.content.decode()
+            else :
+                text = res.text
+        else:
+            gzipped_bytes = res.content
+            text =  b''.join(httputil.read_body_stream(io.BytesIO(gzipped_bytes), chunked=True, compression=httputil.GZIP)).decode()
+
+        bs = BeautifulSoup(text, 'html.parser')
+
+        if type == None:
+            title = bs.select('div#container > div.artlcle_top > h2.tit')[0].text
+
+            base_dtm = bs.select('div#container > div.wrap_container > div > div.info_article > div.date > span')[0].text[3:]
+            contents = bs.select('div#newsView')[0].text
+
+        elif type == 'hei':
+            title = bs.select('div#container > section > h1')[0].text
+            base_dtm = bs.select('div#container > section > div > div.atc-info > span')[0].text[3:]
+
+            contents = bs.select('article#newsView')[0].text
 
     else:
         print("Unknown news site. FATAL ERROR")
