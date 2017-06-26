@@ -6,27 +6,28 @@ import requests
 from bs4 import BeautifulSoup
 from bs4 import NavigableString
 from urllib.parse import urlparse
+from urllib.parse import parse_qs
 
 
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.edaily.c%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://news.mk.co.k%';")
 
 next = True
 for row in cur.fetchall():
-    try:
-        params_str = str(row[1]).split('?')[1].split("&")
-    except IndexError as e:
-        params_str = [str(row[1]).split('/')[-1] ]
 
-    oid = None
-    aid = None
-    for var_str in params_str:
-        if 'oid=' in var_str:
-            oid = var_str.split('=')[1]
-        elif 'aid=' in var_str:
-            aid = var_str.split('=')[1]
+    url_qry = parse_qs(row[1])
+
+    if len(url_qry) == 0 :
+        #parse_qs로 파싱이 안되는 경우
+        try:
+            params_str = str(row[1]).split('?')[1].split("&")
+        except IndexError as e:
+            params_str = [str(row[1]).split('/')[-1] ]
+
+    oid = url_qry.get('oid')
+    aid = url_qry.get('aid')
 
     news_site = None
     dir_postfix = None
@@ -37,7 +38,7 @@ for row in cur.fetchall():
             # 광주드림 뉴스
             news_site = "gjdream"
             #http://www.gjdream.com/v2/news/view.html?news_type=201&uid=480802
-            dir_postfix="gjdream_" + params_str[0].split('=')[1] + "_" + params_str[1].split('=')[1] + ".news"
+            dir_postfix="gjdream_" + url_qry.get('news_type')[0] + "_" + url_qry.get('uid')[0] + ".news"
         elif o.hostname == 'news1.kr':
             #뉴스1
             news_site = "news1"
@@ -47,29 +48,35 @@ for row in cur.fetchall():
             #아시아경제
             news_site = "asiae"
             #http://view.asiae.co.kr/news/view.htm?idxno=2017061813385889015
-            dir_postfix = "asiae_"+ params_str[0].split('=')[1] + ".news"
+            dir_postfix = "asiae_"+ url_qry.get('idxno')[0] + ".news"
         elif o.hostname == 'news.heraldcorp.com':
             # 헤럴드경제
             news_site = "heraldcorp"
             # http://news.heraldcorp.com/village/view.php?ud=201706141855012313875_12
-            dir_postfix = "heraldcorp_" + params_str[0].split('=')[1] + ".news"
+            dir_postfix = "heraldcorp_" + url_qry.get('ud')[0] + ".news"
         elif o.hostname == 'www.mt.co.kr':
             # 머니투데이
             news_site = "mt"
             # http://www.mt.co.kr/view/mtview.php?type=1&no=2017060815500512576&outlink=1
-            dir_postfix = news_site + "_" + params_str[1].split('=')[1] + ".news"
+            dir_postfix = news_site + "_" + url_qry.get('no')[0] + ".news"
 
         elif o.hostname == 'www.newsis.com':
             # 뉴시스
             news_site = "newsis"
             # http://www.newsis.com/view/?id=NISX20170615_0000013759&cID=10812&pID=10800
-            dir_postfix = news_site + "_" + params_str[0].split('=')[1] + ".news"
+            dir_postfix = news_site + "_" + url_qry.get('id')[0] + ".news"
 
         elif o.hostname == 'www.edaily.co.kr':
             # 이데일리
             news_site = "edaily"
             # http://www.edaily.co.kr/news/newspath.asp?newsid=04391926615962048
-            dir_postfix = news_site + "_" + params_str[0].split('=')[1] + ".news"
+            dir_postfix = news_site + "_" + url_qry.get('newsid')[0] + ".news"
+
+        elif o.hostname == 'news.mk.co.kr':
+            # 매경
+            news_site = "mk"
+            # http://news.mk.co.kr/newsRead.php?&year=2017&no=357698
+            dir_postfix = news_site + "_" + url_qry.get('year')[0] + "_" + url_qry.get('no')[0] + ".news"
 
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
@@ -210,6 +217,14 @@ for row in cur.fetchall():
 
         base_dtm = bs.select("div#viewarea > div.pr > p.newsdate")[0].text.split('|')[1].replace('.','-')
         contents = bs.select("span#viewcontent_inner")[0].text
+
+    elif news_site == 'mk':
+        text = res.text.encode('latin-1').decode('cp949')
+        bs = BeautifulSoup(text, 'html.parser')
+        title = bs.select("div#top_header > div > div > h1")[0].text
+
+        base_dtm = bs.select("div#top_header > div > div > div.news_title_author > ul > li.lasttime")[0].text.split(' :')[1].strip().replace('.','-')
+        contents = bs.select("div#article_body")[0].text
 
     else:
         print("Unknown news site. FATAL ERROR")
