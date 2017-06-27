@@ -15,7 +15,7 @@ import chardet
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.newspim.%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.etoday.c%';")
 
 next = True
 for row in cur.fetchall():
@@ -100,6 +100,13 @@ for row in cur.fetchall():
             # http://www.newspim.com/sub_view.php?cate1=3&cate2=6&news_id=100534
             dir_postfix = news_site + "_" + url_qry.get('cate1')[0] +"_" + url_qry.get('cate2')[0] + "_" + url_qry.get('news_id')[0]  + ".news"
             news_url  = "http://www.newspim.com/news/view/" + url_qry.get('news_id')[0]
+
+        elif o.hostname == 'www.etoday.co.kr':
+            # etoday
+            news_site = "etoday"
+            # http://www.etoday.co.kr/news/section/newsview.php?TM=news&SM=0404&idxno=308376
+            dir_postfix = news_site + "_" + url_qry.get('TM')[0] +"_" + url_qry.get('SM')[0] + "_" + url_qry.get('idxno')[0]  + ".news"
+
 
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
@@ -307,6 +314,14 @@ for row in cur.fetchall():
 
         base_dtm = bs.select("div.bodynews_title > ul > li.writetime")[0].text.split(' : ')[1].replace('년','-').replace('월','-').replace('일','')
         contents = bs.select("div#news_contents")[0].text
+
+    elif news_site == 'etoday':# etoday
+        text = res.text
+        bs = BeautifulSoup(text, 'html.parser')
+        title = bs.select("#article_title")[0].text
+
+        base_dtm = bs.select("#ViewHeader > div.byline > em")[0].text.split(' : ')[1]
+        contents = bs.select("#block_body > div > div > div.cont_left_article")[0].text
 
     else:
         print("Unknown news site. FATAL ERROR")
