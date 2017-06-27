@@ -15,7 +15,7 @@ import chardet
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.asiae.co%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://app.yonhapne%';")
 
 next = True
 for row in cur.fetchall():
@@ -109,6 +109,12 @@ for row in cur.fetchall():
             # http://www.etoday.co.kr/news/section/newsview.php?TM=news&SM=0404&idxno=308376
             dir_postfix = news_site + "_" + url_qry.get('TM')[0] +"_" + url_qry.get('SM')[0] + "_" + url_qry.get('idxno')[0]  + ".news"
 
+        elif o.hostname == 'app.yonhapnews.co.kr':
+            # 연합뉴스
+            news_site = "yonhapnews"
+            # http://app.yonhapnews.co.kr/YNA/Basic/SNS/r.aspx?c=AKR20170606076600002&did=1195m
+            dir_postfix = news_site + "_" + url_qry.get('c')[0]  + ".news"
+
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
             exit(-1)
@@ -132,6 +138,7 @@ for row in cur.fetchall():
                 continue
 
     res = requests.get(news_url)
+    return_val = 1
 
     if news_site == "naver":
         bs = BeautifulSoup(res.text, 'html.parser')
@@ -329,23 +336,39 @@ for row in cur.fetchall():
         base_dtm = bs.select("#ViewHeader > div.byline > em")[0].text.split(' : ')[1]
         contents = bs.select("#block_body > div > div > div.cont_left_article")[0].text
 
+    elif news_site == 'yonhapnews':#yonhapnews
+        if '/photos/' in res.url: #사진 기사일경우 스크랩하지 않는다.
+            return_val = 2
+        else:
+            text = res.content.decode()
+            bs = BeautifulSoup(text, 'html.parser')
+            title = bs.select("#articleWrap > h1")[0].text
+
+            base_dtm = bs.select("div.share-info > span > em")[0].text.replace('/','-')
+            contents = bs.select("#articleWrap > div.article")[0].text
+
     else:
         print("Unknown news site. FATAL ERROR")
         exit(-1)
 
-    sub_dir = base_dtm[0:4]
-    if not os.path.isdir("articles/" + sub_dir):
-        os.mkdir("articles/" + sub_dir)
-    dest_file = "articles/" + sub_dir + "/" + dir_postfix
+    if return_val == 1:
+        sub_dir = base_dtm[0:4]
+        if not os.path.isdir("articles/" + sub_dir):
+            os.mkdir("articles/" + sub_dir)
+        dest_file = "articles/" + sub_dir + "/" + dir_postfix
 
-    if not os.path.isfile(dest_file) :
-        f = open(dest_file,'w',encoding="utf-8")
-        f.write(title+"\n")
-        f.write(base_dtm+"\n")
-        f.write(contents)
-        f.close()
+        if not os.path.isfile(dest_file) :
+            f = open(dest_file,'w',encoding="utf-8")
+            f.write(title+"\n")
+            f.write(base_dtm+"\n")
+            f.write(contents)
+            f.close()
 
-    qry = "UPDATE article_title set is_downloaded = 1 where id = %d ;" % row[0]
+    #is_downloaeded
+    #0: not downloaded
+    #1: downloaeded
+    #2: not need to download
+    qry = "UPDATE article_title set is_downloaded = %d where id = %d ;" % (return_val, row[0])
     cur.execute(qry)
     conn.commit()
 
