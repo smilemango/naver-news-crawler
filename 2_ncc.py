@@ -262,8 +262,11 @@ for row in cur.fetchall():
         type = None
         if res.text.startswith('<!'):
             if res.request.url.startswith('http://hei'):
-                type = 'hei'
+                type = 'hei' #한경 연예면
                 text = res.content.decode()
+            elif res.request.url.startswith('http://plus'):
+                type = 'plus' #한경 플러스
+                text = res.text.encode('latin-1').decode('cp949')
             else :
                 text = res.text
         else:
@@ -283,6 +286,11 @@ for row in cur.fetchall():
             base_dtm = bs.select('div#container > section > div > div.atc-info > span')[0].text[3:]
 
             contents = bs.select('article#newsView')[0].text
+        elif type == 'plus':
+            title = bs.select('section#container > section.service_cnt > article > article > header > h2')[0].text
+            base_dtm = bs.select('section#container > section.service_cnt > article > article > p.info > span')[1].text
+
+            contents = bs.select('div.articleContent')[0].text
 
     else:
         print("Unknown news site. FATAL ERROR")
