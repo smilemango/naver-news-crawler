@@ -15,11 +15,12 @@ import chardet
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.hankyung.%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.newspim.%';")
 
 next = True
 for row in cur.fetchall():
 
+    news_url = row[1]
     url_qry = parse_qs(row[1].split('?')[1])
 
     if len(url_qry) == 0 :
@@ -93,6 +94,13 @@ for row in cur.fetchall():
             # http://www.hankyung.com/news/app/newsview.php?aid=2017053129361
             dir_postfix = news_site + "_" + url_qry.get('aid')[0] + ".news"
 
+        elif o.hostname == 'www.newspim.com':
+            # newspim
+            news_site = "newspim"
+            # http://www.newspim.com/sub_view.php?cate1=3&cate2=6&news_id=100534
+            dir_postfix = news_site + "_" + url_qry.get('cate1')[0] +"_" + url_qry.get('cate2')[0] + "_" + url_qry.get('news_id')[0]  + ".news"
+            news_url  = "http://www.newspim.com/news/view/" + url_qry.get('news_id')[0]
+
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
             exit(-1)
@@ -115,7 +123,7 @@ for row in cur.fetchall():
                 conn.commit()
                 continue
 
-    res = requests.get(row[1])
+    res = requests.get(news_url)
 
     if news_site == "naver":
         bs = BeautifulSoup(res.text, 'html.parser')
@@ -291,6 +299,14 @@ for row in cur.fetchall():
             base_dtm = bs.select('section#container > section.service_cnt > article > article > p.info > span')[1].text
 
             contents = bs.select('div.articleContent')[0].text
+
+    elif news_site == 'newspim':# newspim
+        text = res.text
+        bs = BeautifulSoup(text, 'html.parser')
+        title = bs.select("div.bodynews_title > h1")[0].text
+
+        base_dtm = bs.select("div.bodynews_title > ul > li.writetime")[0].text.split(' : ')[1].replace('년','-').replace('월','-').replace('일','')
+        contents = bs.select("div#news_contents")[0].text
 
     else:
         print("Unknown news site. FATAL ERROR")
