@@ -15,7 +15,7 @@ import chardet
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.etoday.c%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.asiae.co%';")
 
 next = True
 for row in cur.fetchall():
@@ -48,11 +48,13 @@ for row in cur.fetchall():
             news_site = "news1"
             # http://news1.kr/articles/?3023732
             dir_postfix = "news1_" + params_str[0] + ".news"
-        elif o.hostname == 'view.asiae.co.kr':
+        elif o.hostname == 'view.asiae.co.kr' or o.hostname == 'www.asiae.co.kr' :
             #아시아경제
             news_site = "asiae"
             #http://view.asiae.co.kr/news/view.htm?idxno=2017061813385889015
-            dir_postfix = "asiae_"+ url_qry.get('idxno')[0] + ".news"
+            #http://www.asiae.co.kr/uhtml/read.jsp?idxno=181892&ion=S1N53&ion2=S2N213
+            dir_postfix = news_site + "_" + url_qry.get('idxno')[0]  + ".news"
+
         elif o.hostname == 'news.heraldcorp.com':
             # 헤럴드경제
             news_site = "heraldcorp"
@@ -106,7 +108,6 @@ for row in cur.fetchall():
             news_site = "etoday"
             # http://www.etoday.co.kr/news/section/newsview.php?TM=news&SM=0404&idxno=308376
             dir_postfix = news_site + "_" + url_qry.get('TM')[0] +"_" + url_qry.get('SM')[0] + "_" + url_qry.get('idxno')[0]  + ".news"
-
 
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
@@ -179,6 +180,11 @@ for row in cur.fetchall():
 
 
     elif news_site == 'asiae':
+        if res.text.startswith('<script') and res.url.startswith('http://www.asiae'):
+            bs = BeautifulSoup(res.text, 'html.parser')
+            new_url = 'http://www.asiae.co.kr' + bs.select('script')[0].text.split("'")[1]
+            res = requests.get(new_url)
+
         text = res.text.encode('latin-1').decode('cp949')
         bs = BeautifulSoup(text, 'html.parser')
         title = bs.select("div.area_title > h1")[0].text
