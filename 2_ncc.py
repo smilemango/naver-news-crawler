@@ -15,7 +15,7 @@ import chardet
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.ajunews.%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.thebell.%';")
 
 next = True
 for row in cur.fetchall():
@@ -139,6 +139,11 @@ for row in cur.fetchall():
             else:
                 dir_postfix = news_site + "_"  + row[1].split('/')[-1]  + ".news"
 
+        elif o.hostname == 'www.thebell.co.kr':
+            # 더벨
+            news_site = "thebell"
+            # http://www.thebell.co.kr/front/free/contents/article_view.asp?key=201309060100009530000521
+            dir_postfix = news_site + "_" + url_qry.get("key")[0] + ".news"
 
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
@@ -422,6 +427,17 @@ for row in cur.fetchall():
                 contents = bs.select("#articleBody > div")[0].text.strip()
             elif len(bs.select("#articleBody")) > 0 :
                 contents = bs.select("#articleBody")[0].text.strip()
+
+    elif news_site == 'thebell':
+        # http://www.thebell.co.kr/front/free/contents/news/article_view.asp?svccode=&page=1&sort=thebell_check_time&key=201309060100009530000521
+        next_url = 'http://www.thebell.co.kr/front/free/contents/news/article_view.asp?svccode=&page=1&sort=thebell_check_time&key=' + url_qry.get('key')[0]
+        res = requests.get(next_url)
+
+        text = res.text
+        bs = BeautifulSoup(text, 'html.parser')
+        title = bs.select("li.title > h1")[0].text.strip()
+        base_dtm = bs.select("div.title_bar > ul > li.left")[0].text.split('공개 ')[-1]
+        contents = bs.select("#article_main")[0].text.strip()
 
     else:
         print("Unknown news site. FATAL ERROR")
