@@ -450,9 +450,15 @@ for row in cur.fetchall():
         # http://www.seoulfn.com/news/articleView.html?idxno=39351&ion=section4
         text = res.text.encode('latin-1').decode('cp949')
         bs = BeautifulSoup(text, 'html.parser')
-        title = bs.select("#font_title")[0].text.strip()
-        base_dtm = bs.select("#font_date > span")[0].text.strip()[:20].replace('  ',' ')#space 아님
-        contents = bs.select("#CmAdContent")[0].text.strip()
+        if len(bs.select("td > b"))>0 and  bs.select("td > b")[0].text.startswith('존재하지') :
+            return_val = 3
+        elif len(bs.select("div.phtit")) > 0 :
+            #photo news
+            return_val = 2
+        else:
+            title = bs.select("#font_title")[0].text.strip()
+            base_dtm = bs.select("#font_date > span")[0].text.strip()[:20].replace('  ',' ')#space 아님
+            contents = bs.select("#CmAdContent")[0].text.strip()
 
 
     else:
