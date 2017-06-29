@@ -416,8 +416,7 @@ for row in cur.fetchall():
             # 페이지를 찾을 수 없음
             return_val = 3
         else:
-            title = bs.select("#B_M_L_680_A-M100000399-4 > div.ma680-0001-head-block > h2")[0].text.strip()
-
+            title = bs.select("div.ma680-0001-head-block > h2")[0].text.strip()
             base_dtm = bs.select("li.regi_date.cus")[0].text.split(' : ')[1]
             if len(bs.select("#articleBody > div")) > 0 :
                 contents = bs.select("#articleBody > div")[0].text.strip()
