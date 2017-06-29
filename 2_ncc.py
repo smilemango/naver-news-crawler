@@ -15,7 +15,7 @@ import chardet
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.thebell.%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.seoulfn.%';")
 
 next = True
 for row in cur.fetchall():
@@ -144,6 +144,13 @@ for row in cur.fetchall():
             news_site = "thebell"
             # http://www.thebell.co.kr/front/free/contents/article_view.asp?key=201309060100009530000521
             dir_postfix = news_site + "_" + url_qry.get("key")[0] + ".news"
+
+        elif o.hostname == 'www.seoulfn.com':
+            # 서울파이낸스
+            news_site = "seoulfn"
+            # http://www.seoulfn.com/news/articleView.html?idxno=39351&ion=section4
+            dir_postfix = news_site + "_" + url_qry.get("idxno")[0] + ".news"
+
 
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
@@ -438,6 +445,15 @@ for row in cur.fetchall():
         title = bs.select("li.title > h1")[0].text.strip()
         base_dtm = bs.select("div.title_bar > ul > li.left")[0].text.split('공개 ')[-1]
         contents = bs.select("#article_main")[0].text.strip()
+
+    elif news_site == 'seoulfn':
+        # http://www.seoulfn.com/news/articleView.html?idxno=39351&ion=section4
+        text = res.text.encode('latin-1').decode('cp949')
+        bs = BeautifulSoup(text, 'html.parser')
+        title = bs.select("#font_title")[0].text.strip()
+        base_dtm = bs.select("#font_date > span")[0].text.strip()[:20].replace('  ',' ')#space 아님
+        contents = bs.select("#CmAdContent")[0].text.strip()
+
 
     else:
         print("Unknown news site. FATAL ERROR")
