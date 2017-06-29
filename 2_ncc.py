@@ -138,12 +138,13 @@ for row in cur.fetchall():
     for root, dirs, files in os.walk("articles"):
         for file in files:
             if str(file) == dir_postfix:
-                print("File is alread exists : %s " % str(os.path.join(root, file)))
-                print("SKIP")
-                qry = "UPDATE article_title set is_downloaded = 1 where id = %d ;" % row[0]
-                cur.execute(qry)
-                conn.commit()
-                continue
+                if os.stat(str(os.path.join(root, file))).st_size > 0 : #파일 사이즈가 0보다 크면
+                    print("File is alread exists : %s " % str(os.path.join(root, file)))
+                    print("SKIP")
+                    qry = "UPDATE article_title set is_downloaded = 1 where id = %d ;" % row[0]
+                    cur.execute(qry)
+                    conn.commit()
+                    continue
 
     res = requests.get(news_url)
     return_val = 1
@@ -267,8 +268,8 @@ for row in cur.fetchall():
         if bs.select('div#viewarea > h4'):
             title = bs.select("div#viewarea > h4")[0].text
 
-            base_dtm = bs.select("div#viewarea > div.pr > p.newsdate")[0].text.split('|')[1].replace('.','-')
-            contents = bs.select("span#viewcontent_inner")[0].text
+            base_dtm = bs.select("div#viewarea > div.pr > p.newsdate")[0].text.split('|')[1].replace('.','-').strip()
+            contents = bs.select("span#viewcontent_inner")[0].text.encode('utf-8','ignore').decode('utf-8') #깨진문자가 있다면 이과정에서 무시된다.
         elif len(bs.select("div.left > p > a > img")) > 0:
             # 사진 기사
             """"""
@@ -276,7 +277,7 @@ for row in cur.fetchall():
         elif len(bs.select('h4.newstitle')) > 0 :
             title = bs.select("h4.newstitle")[0].text
 
-            base_dtm = bs.select("p.newsdate")[0].text.split('|')[1].replace('.','-')
+            base_dtm = bs.select("p.newsdate")[0].text.split('|')[1].replace('.','-').strip()
             contents = bs.select("span#viewcontent_inner")[0].text
 
 
@@ -376,20 +377,20 @@ for row in cur.fetchall():
             os.mkdir("articles/" + sub_dir)
         dest_file = "articles/" + sub_dir + "/" + dir_postfix
 
-        if not os.path.isfile(dest_file) :
+        if not os.path.isfile(dest_file) or ( os.path.isfile(dest_file) and os.stat(dest_file).st_size == 0 ):
             f = open(dest_file,'w',encoding="utf-8")
-            f.write(title+"\n")
-            f.write(base_dtm+"\n")
-            f.write(contents)
+            f.write(title+"\n"+ base_dtm+"\n"+ contents)
             f.close()
 
-    #is_downloaeded
-    #0: not downloaded
-    #1: downloaeded
-    #2: not need to download
-    qry = "UPDATE article_title set is_downloaded = %d where id = %d ;" % (return_val, row[0])
-    cur.execute(qry)
-    conn.commit()
+            # is_downloaeded
+            # 0: not downloaded
+            # 1: downloaeded
+            # 2: not need to download
+            qry = "UPDATE article_title set is_downloaded = %d where id = %d ;" % (return_val, row[0])
+            cur.execute(qry)
+            conn.commit()
+
+
 
 
 
