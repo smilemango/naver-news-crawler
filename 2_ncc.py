@@ -264,10 +264,16 @@ for row in cur.fetchall():
     elif news_site == 'edaily':
         text = res.text.encode('latin-1').decode('cp949')
         bs = BeautifulSoup(text, 'html.parser')
-        title = bs.select("div#viewarea > h4")[0].text
+        if bs.select('div#viewarea > h4'):
+            title = bs.select("div#viewarea > h4")[0].text
 
-        base_dtm = bs.select("div#viewarea > div.pr > p.newsdate")[0].text.split('|')[1].replace('.','-')
-        contents = bs.select("span#viewcontent_inner")[0].text
+            base_dtm = bs.select("div#viewarea > div.pr > p.newsdate")[0].text.split('|')[1].replace('.','-')
+            contents = bs.select("span#viewcontent_inner")[0].text
+        elif bs.select("div.left > p > a > img")[0].attrs['alt']:
+            # 사진 기사
+            """"""
+            return_val =2
+
 
     elif news_site == 'mk':
         text = res.text.encode('latin-1').decode('cp949')
