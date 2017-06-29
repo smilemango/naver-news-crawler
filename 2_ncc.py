@@ -15,7 +15,7 @@ import chardet
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.edaily.c%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://biz.chosun.c%';")
 
 next = True
 for row in cur.fetchall():
@@ -23,18 +23,20 @@ for row in cur.fetchall():
     oid = None
 
     news_url = row[1]
-    url_qry = parse_qs(row[1].split('?')[1])
-
-    if len(url_qry) == 0 :
+    url_qry = None
+    if '?' in row[1] :
+        url_qry = parse_qs(row[1].split('?')[1])
+    else :
         #parse_qs로 파싱이 안되는 경우
         try:
             params_str = str(row[1]).split('?')[1].split("&")
         except IndexError as e:
             params_str = [str(row[1]).split('/')[-1] ]
 
-    if not url_qry.get('oid') == None:
-        oid = url_qry.get('oid')[0]
-        aid = url_qry.get('aid')[0]
+    if not url_qry is None:
+        if not url_qry.get('oid') == None:
+            oid = url_qry.get('oid')[0]
+            aid = url_qry.get('aid')[0]
 
     news_site = None
     dir_postfix = None
@@ -85,7 +87,6 @@ for row in cur.fetchall():
             elif not url_qry.get('uid') == None:
                 dir_postfix = news_site + "_"+ url_qry.get('uid')[0] +"_" + url_qry.get('mcd')[0] + ".news"
 
-
         elif o.hostname == 'news.mk.co.kr':
             # 매경
             news_site = "mk"
@@ -122,6 +123,12 @@ for row in cur.fetchall():
             news_site = "yonhapnews"
             # http://app.yonhapnews.co.kr/YNA/Basic/SNS/r.aspx?c=AKR20170606076600002&did=1195m
             dir_postfix = news_site + "_" + url_qry.get('c')[0]  + ".news"
+
+        elif o.hostname == 'biz.chosun.com':
+            # 비즈조선
+            news_site = "biz.chosun"
+            # http://biz.chosun.com/site/data/html_dir/2011/07/14/2011071401906.html
+            dir_postfix = news_site + "_"  + row[1].split('html_dir/')[1][:-5].replace('/','_')  + ".news"
 
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
@@ -367,6 +374,30 @@ for row in cur.fetchall():
             base_dtm = bs.select("div.share-info > span > em")[0].text.replace('/','-')
             contents = bs.select("#articleWrap > div.article")[0].text
 
+    elif news_site == 'biz.chosun':# biz chosun
+        if res.text.startswith('<meta'):
+            #<meta http-equiv="Refresh" Content="0;url=http://premium.chosun.com/site/data/html_dir/2012/01/29/2012012967006.html"/>
+            next_url = res.text.split('url=')[1][:-3]
+            res = requests.get(next_url)
+            text =res.content.decode()
+            bs = BeautifulSoup(text, 'html.parser')
+            title = bs.select("#title_text")[0].text
+
+            base_dtm = bs.select("span.date_text")[0].text.split(' : ')[1].strip().replace('.','-')
+            contents = bs.select("#par")[0].text
+
+        else :
+            text =res.content.decode()
+            bs = BeautifulSoup(text, 'html.parser')
+
+            if bs.select('head > title')[0].text == '404 Not Found':
+                return_val = 3
+
+            else:
+                title = bs.select("#title_text")[0].text
+                base_dtm = bs.select("#date_text")[0].text.split(' : ')[1].strip().replace('.','-')
+                contents = bs.select("#article_2011")[0].text
+
     else:
         print("Unknown news site. FATAL ERROR")
         exit(-1)
@@ -386,6 +417,7 @@ for row in cur.fetchall():
             # 0: not downloaded
             # 1: downloaeded
             # 2: not need to download
+            # 3: 404 not found
             qry = "UPDATE article_title set is_downloaded = %d where id = %d ;" % (return_val, row[0])
             cur.execute(qry)
             conn.commit()
