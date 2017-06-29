@@ -15,10 +15,12 @@ import chardet
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://app.yonhapne%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.edaily.c%';")
 
 next = True
 for row in cur.fetchall():
+    aid = None
+    oid = None
 
     news_url = row[1]
     url_qry = parse_qs(row[1].split('?')[1])
@@ -30,8 +32,9 @@ for row in cur.fetchall():
         except IndexError as e:
             params_str = [str(row[1]).split('/')[-1] ]
 
-    oid = url_qry.get('oid')
-    aid = url_qry.get('aid')
+    if not url_qry.get('oid') == None:
+        oid = url_qry.get('oid')[0]
+        aid = url_qry.get('aid')[0]
 
     news_site = None
     dir_postfix = None
@@ -76,7 +79,12 @@ for row in cur.fetchall():
             # 이데일리
             news_site = "edaily"
             # http://www.edaily.co.kr/news/newspath.asp?newsid=04391926615962048
-            dir_postfix = news_site + "_" + url_qry.get('newsid')[0] + ".news"
+            if not url_qry.get('newsid') == None :
+                dir_postfix = news_site + "_" + url_qry.get('newsid')[0] + ".news"
+            #http://www.edaily.co.kr/news/related_article.edy?uid=1175703&mcd=01
+            elif not url_qry.get('uid') == None:
+                dir_postfix = news_site + "_"+ url_qry.get('uid')[0] +"_" + url_qry.get('mcd')[0] + ".news"
+
 
         elif o.hostname == 'news.mk.co.kr':
             # 매경
