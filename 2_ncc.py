@@ -15,7 +15,7 @@ import chardet
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://biz.chosun.c%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.ajunews.%';")
 
 next = True
 for row in cur.fetchall():
@@ -129,6 +129,16 @@ for row in cur.fetchall():
             news_site = "biz.chosun"
             # http://biz.chosun.com/site/data/html_dir/2011/07/14/2011071401906.html
             dir_postfix = news_site + "_"  + row[1].split('html_dir/')[1][:-5].replace('/','_')  + ".news"
+
+        elif o.hostname == 'www.ajunews.com':
+            # 아주경제
+            news_site = "ajunews"
+            # http://www.ajunews.com/view/20170618121755955
+            if not url_qry is None :
+                dir_postfix = news_site + "_" + url_qry.get("newsId")[0] + ".news"
+            else:
+                dir_postfix = news_site + "_"  + row[1].split('/')[-1]  + ".news"
+
 
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
@@ -397,6 +407,22 @@ for row in cur.fetchall():
                 title = bs.select("#title_text")[0].text
                 base_dtm = bs.select("#date_text")[0].text.split(' : ')[1].strip().replace('.','-')
                 contents = bs.select("#article_2011")[0].text
+
+    elif news_site == 'ajunews':  # ajunews
+        text = res.text
+        bs = BeautifulSoup(text, 'html.parser')
+
+        if len(bs.select('body > div > div.etc-body > div.etc-url-error-desc > div')) > 0 :
+            # 페이지를 찾을 수 없음
+            return_val = 3
+        else:
+            title = bs.select("#B_M_L_680_A-M100000399-4 > div.ma680-0001-head-block > h2")[0].text.strip()
+
+            base_dtm = bs.select("li.regi_date.cus")[0].text.split(' : ')[1]
+            if len(bs.select("#articleBody > div")) > 0 :
+                contents = bs.select("#articleBody > div")[0].text.strip()
+            elif len(bs.select("#articleBody")) > 0 :
+                contents = bs.select("#articleBody")[0].text.strip()
 
     else:
         print("Unknown news site. FATAL ERROR")
