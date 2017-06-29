@@ -269,10 +269,15 @@ for row in cur.fetchall():
 
             base_dtm = bs.select("div#viewarea > div.pr > p.newsdate")[0].text.split('|')[1].replace('.','-')
             contents = bs.select("span#viewcontent_inner")[0].text
-        elif bs.select("div.left > p > a > img")[0].attrs['alt']:
+        elif len(bs.select("div.left > p > a > img")) > 0:
             # 사진 기사
             """"""
             return_val =2
+        elif len(bs.select('h4.newstitle')) > 0 :
+            title = bs.select("h4.newstitle")[0].text
+
+            base_dtm = bs.select("p.newsdate")[0].text.split('|')[1].replace('.','-')
+            contents = bs.select("span#viewcontent_inner")[0].text
 
 
     elif news_site == 'mk':
