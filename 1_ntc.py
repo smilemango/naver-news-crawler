@@ -37,21 +37,38 @@ while True:
         #bs.select("div.paging > a")
         cur = conn.cursor()
         count = 0
-        for tit in bs.select("a.tit"):
+        for node in bs.select("#search_div > ul > li > div"):
+            # 타이틀
+            tit = node.select('a.tit')[0]
             if 'http://sports.' in str(tit.attrs['href']):
                 #스포츠 뉴스는 거른다.
                 continue
-            qry = "INSERT OR IGNORE INTO article_title (url, title) VALUES ('%s','%s')" % ( str(tit.attrs['href']).replace("'","''"),str(tit.text).replace("'","''"))
-            cur.execute(qry)
-            count += 1
+            elif len(node.select('a.go_naver')) > 0:
+                title = tit.text
+                url = node.select('a.go_naver')[0].attrs['href']
+            else: # 'http://news.naver.' in tit.attrs['href']:
+                title = tit.text
+                url = tit.attrs['href']
 
-        for tit in bs.select("ul.related_lst > li > a"):
-            if 'http://sports.' in str(tit.attrs['href']):
+            qry = "INSERT OR IGNORE INTO article_title (url, title) VALUES ('%s','%s')" % ( url.replace("'","''"),title.replace("'","''"))
+            ret = cur.execute(qry)
+            count += ret.rowcount
+
+        for li_node in bs.select("#search_div > ul > li > div > div.related_group > ul > li"):
+            tit = li_node.select('a')[0]
+            if 'http://sports.' in tit.attrs['href']:
                 #스포츠 뉴스는 거른다.
                 continue
-            qry = "INSERT OR IGNORE INTO article_title (url, title) VALUES ('%s','%s')" % (str(tit.attrs['href']).replace("'", "''"), str(tit.text).replace("'", "''"))
-            cur.execute(qry)
-            count += 1
+            elif len(li_node.select('a.go_naver')) > 0:
+                title = tit.text
+                url = li_node.select('a.go_naver')[0].attrs['href']
+            else: # 'http://news.naver.' in tit.attrs['href']:
+                title = tit.text
+                url = tit.attrs['href']
+
+            qry = "INSERT OR IGNORE INTO article_title (url, title) VALUES ('%s','%s')" % (url.replace("'", "''"), title.replace("'", "''"))
+            ret = cur.execute(qry)
+            count += ret.rowcount
 
         conn.commit()
         print("%d rows inserted." % count )
