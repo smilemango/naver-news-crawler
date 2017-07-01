@@ -15,7 +15,7 @@ import chardet
 conn = sqlite3.connect("articles.sqlite3")
 
 cur = conn.cursor()
-cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null) and URL like 'http://www.seoulfn.%';")
+cur.execute("SELECT * FROM article_title where (is_downloaded = 0 or is_downloaded is null)")
 
 next = True
 for row in cur.fetchall():
@@ -151,9 +151,17 @@ for row in cur.fetchall():
             # http://www.seoulfn.com/news/articleView.html?idxno=39351&ion=section4
             dir_postfix = news_site + "_" + url_qry.get("idxno")[0] + ".news"
 
+        elif o.hostname == 'www.segye.com':
+            # 세계일보
+            news_site = "segye"
+            # http://www.segye.com/Service5/ShellView.asp?TreeID=1052&PCode=0007&DataID=200603011617000176
+            dir_postfix = news_site + "_" + url_qry.get("idxno")[0] + ".news"
+
 
         else :
             print("Unknown news site. FATAL ERROR ===> %s" % row[1])
+            # 예외는 패스한다.
+            continue
             exit(-1)
     else :
         news_site = "naver"
@@ -175,24 +183,31 @@ for row in cur.fetchall():
                     conn.commit()
                     continue
 
-    res = requests.get(news_url)
+    try:
+        res = requests.get(news_url)
+    except requests.exceptions.TooManyRedirects as e:
+        res = None
+
     return_val = 1
 
     if news_site == "naver":
-        bs = BeautifulSoup(res.text, 'html.parser')
-        try:
-            title = bs.select("h3#articleTitle")[0].text
-            base_dtm = bs.select("div.sponsor > span.t11")[0].text
-            contents = ""
-            for elmnt in bs.select("div#articleBodyContents")[0].contents:
-                if type(elmnt) == NavigableString:
-                    if str(elmnt).strip() != '':
-                        contents += str(elmnt).strip() + "\n"
-        except IndexError as e:
-            #연예면 기사의 경우 형식이 조금 다르다
-            title = bs.select("h2.end_tit")[0].text
-            base_dtm = bs.select("div#content > div.end_ct > div > div.article_info > span > em")[0].text.replace('.','-')
-            contents = bs.select("div#articeBody")[0].text
+        if res.url.startswith('http://sports') : # 스포츠뉴스는 거른다.
+            return_val = 2
+        else:
+            bs = BeautifulSoup(res.text, 'html.parser')
+            try:
+                title = bs.select("h3#articleTitle")[0].text
+                base_dtm = bs.select("div.sponsor > span.t11")[0].text
+                contents = ""
+                for elmnt in bs.select("div#articleBodyContents")[0].contents:
+                    if type(elmnt) == NavigableString:
+                        if str(elmnt).strip() != '':
+                            contents += str(elmnt).strip() + "\n"
+            except IndexError as e:
+                #연예면 기사의 경우 형식이 조금 다르다
+                title = bs.select("h2.end_tit")[0].text
+                base_dtm = bs.select("div#content > div.end_ct > div > div.article_info > span > em")[0].text.replace('.','-')
+                contents = bs.select("div#articeBody")[0].text
 
     elif news_site == "gjdream":
         text = res.text.encode('latin-1').decode('cp949')
@@ -370,12 +385,16 @@ for row in cur.fetchall():
             contents = bs.select('div.articleContent')[0].text
 
     elif news_site == 'newspim':# newspim
-        text = res.text
-        bs = BeautifulSoup(text, 'html.parser')
-        title = bs.select("div.bodynews_title > h1")[0].text
+        if not res is None :
+            text = res.text
+            bs = BeautifulSoup(text, 'html.parser')
+            title = bs.select("div.bodynews_title > h1")[0].text
 
-        base_dtm = bs.select("div.bodynews_title > ul > li.writetime")[0].text.split(' : ')[1].replace('년','-').replace('월','-').replace('일','')
-        contents = bs.select("div#news_contents")[0].text
+            base_dtm = bs.select("div.bodynews_title > ul > li.writetime")[0].text.split(' : ')[1].replace('년','-').replace('월','-').replace('일','')
+            contents = bs.select("div#news_contents")[0].text
+        else:
+            # 404 not found
+            return_val = 3
 
     elif news_site == 'etoday':# etoday
         text = res.text
