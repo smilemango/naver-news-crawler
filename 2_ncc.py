@@ -10,6 +10,7 @@ from urllib.parse import parse_qs
 import httputil
 import io
 import chardet
+import pprint
 
 
 conn = sqlite3.connect("articles.sqlite3")
@@ -109,14 +110,31 @@ for row in cur.fetchall():
             # newspim
             news_site = "newspim"
             # http://www.newspim.com/sub_view.php?cate1=3&cate2=6&news_id=100534
-            dir_postfix = news_site + "_" + url_qry.get('cate1')[0] +"_" + url_qry.get('cate2')[0] + "_" + url_qry.get('news_id')[0]  + ".news"
-            news_url  = "http://www.newspim.com/news/view/" + url_qry.get('news_id')[0]
+            if not url_qry is None and  not url_qry.get('cate1') is None :
+                dir_postfix = news_site + "_" + url_qry.get('cate1')[0] +"_" + url_qry.get('cate2')[0] + "_" + url_qry.get('news_id')[0]  + ".news"
+                news_url = "http://www.newspim.com/news/view/" + url_qry.get('news_id')[0]
+            elif not url_qry is None:
+                dir_postfix = news_site + "_" + url_qry.get('newsId')[0] + ".news"
+                news_url = "http://www.newspim.com/news/view/" + url_qry.get('newsId')[0]
+            else:
+                # http://www.newspim.com/news/view/20151211000469  형태이므로 url을 수정하지 않는다.
+                dir_postfix = news_site + "_" + news_url.split('/')[-1] + ".news"
+
+
+
+
+
 
         elif o.hostname == 'www.etoday.co.kr':
             # etoday
             news_site = "etoday"
             # http://www.etoday.co.kr/news/section/newsview.php?TM=news&SM=0404&idxno=308376
-            dir_postfix = news_site + "_" + url_qry.get('TM')[0] +"_" + url_qry.get('SM')[0] + "_" + url_qry.get('idxno')[0]  + ".news"
+            # http://www.etoday.co.kr/news/section/newsview.php?idxno=637504
+            if url_qry.get('TM') is None:
+                dir_postfix = news_site + "_" + url_qry.get('idxno')[0] + ".news"
+            else:
+                dir_postfix = news_site + "_" + url_qry.get('TM')[0] +"_" + url_qry.get('SM')[0] + "_" + url_qry.get('idxno')[0]  + ".news"
+
 
         elif o.hostname == 'app.yonhapnews.co.kr':
             # 연합뉴스
@@ -187,6 +205,10 @@ for row in cur.fetchall():
         res = requests.get(news_url)
     except requests.exceptions.TooManyRedirects as e:
         res = None
+    except requests.exceptions.ConnectionError as ce:
+        print("Connection aborted. : %s" % news_url)
+        continue
+
 
     return_val = 1
 
@@ -194,20 +216,20 @@ for row in cur.fetchall():
         if res.url.startswith('http://sports') : # 스포츠뉴스는 거른다.
             return_val = 2
         else:
-            bs = BeautifulSoup(res.text, 'html.parser')
-            try:
+            bs = BeautifulSoup(res.text, 'lxml')
+
+            if len(bs.select("h2.end_tit")) > 0 :
+                # 연예면 기사의 경우 형식이 조금 다르다
+                title = bs.select("h2.end_tit")[0].text
+                base_dtm = bs.select("div#content > div.end_ct > div > div.article_info > span > em")[0].text.replace('.',                                                                                                                      '-')
+                contents = bs.select("div#articeBody")[0].text
+            elif len(bs.select("#main_content > div > div > h1.error_title")) > 0 :
+                #news not found
+                return_val= 3
+            else :
                 title = bs.select("h3#articleTitle")[0].text
                 base_dtm = bs.select("div.sponsor > span.t11")[0].text
-                contents = ""
-                for elmnt in bs.select("div#articleBodyContents")[0].contents:
-                    if type(elmnt) == NavigableString:
-                        if str(elmnt).strip() != '':
-                            contents += str(elmnt).strip() + "\n"
-            except IndexError as e:
-                #연예면 기사의 경우 형식이 조금 다르다
-                title = bs.select("h2.end_tit")[0].text
-                base_dtm = bs.select("div#content > div.end_ct > div > div.article_info > span > em")[0].text.replace('.','-')
-                contents = bs.select("div#articeBody")[0].text
+                contents = bs.select("div#articleBodyContents")[0].text
 
     elif news_site == "gjdream":
         text = res.text.encode('latin-1').decode('cp949')
@@ -387,22 +409,38 @@ for row in cur.fetchall():
     elif news_site == 'newspim':# newspim
         if not res is None :
             text = res.text
-            bs = BeautifulSoup(text, 'html.parser')
-            title = bs.select("div.bodynews_title > h1")[0].text
 
-            base_dtm = bs.select("div.bodynews_title > ul > li.writetime")[0].text.split(' : ')[1].replace('년','-').replace('월','-').replace('일','')
-            contents = bs.select("div#news_contents")[0].text
+            if '/anda/view' in text:
+                return_val = 2 # no need to download, premium news
+            elif "document.location.href='/';" in text:
+                return_val = 2  # article is not exists
+            else :
+                bs = BeautifulSoup(text, 'html.parser')
+                title = bs.select("div.bodynews_title > h1")[0].text
+
+                base_dtm = bs.select("div.bodynews_title > ul > li.writetime")[0].text.split(' : ')[1].replace('년','-').replace('월','-').replace('일','')
+                contents = bs.select("div#news_contents")[0].text
         else:
             # 404 not found
             return_val = 3
 
     elif news_site == 'etoday':# etoday
         text = res.text
-        bs = BeautifulSoup(text, 'html.parser')
-        title = bs.select("#article_title")[0].text
+        if '뉴스가 존재하지 않습니다' in text:
+            return_val = 3
+        else:
+            try:
+                bs = BeautifulSoup(text, 'lxml')
+                title = bs.select("#article_title")[0].text
 
-        base_dtm = bs.select("#ViewHeader > div.byline > em")[0].text.split(' : ')[1]
-        contents = bs.select("#block_body > div > div > div.cont_left_article")[0].text
+                base_dtm = bs.select("#ViewHeader > div.byline > em")[0].text.split(' : ')[1]
+                if len(bs.select("#newsContent")) > 0 :
+                    contents = bs.select("#newsContent")[0].text.strip()
+                else:
+                    contents = bs.select("#block_body > div > div > div.cont_left_article")[0].text.strip()
+            except:
+                # 일단 패스
+                continue
 
     elif news_site == 'yonhapnews':#yonhapnews
         if '/photos/' in res.url: #사진 기사일경우 스크랩하지 않는다.
@@ -447,12 +485,15 @@ for row in cur.fetchall():
             # 페이지를 찾을 수 없음
             return_val = 3
         else:
-            title = bs.select("div.ma680-0001-head-block > h2")[0].text.strip()
-            base_dtm = bs.select("li.regi_date.cus")[0].text.split(' : ')[1]
-            if len(bs.select("#articleBody > div")) > 0 :
-                contents = bs.select("#articleBody > div")[0].text.strip()
-            elif len(bs.select("#articleBody")) > 0 :
-                contents = bs.select("#articleBody")[0].text.strip()
+            try:
+                title = bs.select("div.ma680-0001-head-block > h2")[0].text.strip()
+                base_dtm = bs.select("li.regi_date.cus")[0].text.split(' : ')[1]
+                if len(bs.select("#articleBody > div")) > 0 :
+                    contents = bs.select("#articleBody > div")[0].text.strip()
+                elif len(bs.select("#articleBody")) > 0 :
+                    contents = bs.select("#articleBody")[0].text.strip()
+            except :
+                continue
 
     elif news_site == 'thebell':
         # http://www.thebell.co.kr/front/free/contents/news/article_view.asp?svccode=&page=1&sort=thebell_check_time&key=201309060100009530000521
@@ -461,9 +502,12 @@ for row in cur.fetchall():
 
         text = res.text
         bs = BeautifulSoup(text, 'html.parser')
-        title = bs.select("li.title > h1")[0].text.strip()
-        base_dtm = bs.select("div.title_bar > ul > li.left")[0].text.split('공개 ')[-1]
-        contents = bs.select("#article_main")[0].text.strip()
+        if len( bs.select("#article_main > span > b")) > 0 and '유료' in bs.select("#article_main > span > b")[0].text:
+            return_val = 3 # no need to downlaod
+        else:
+            title = bs.select("li.title > h1")[0].text.strip()
+            base_dtm = bs.select("div.title_bar > ul > li.left")[0].text.split('공개 ')[-1]
+            contents = bs.select("#article_main")[0].text.strip()
 
     elif news_site == 'seoulfn':
         # http://www.seoulfn.com/news/articleView.html?idxno=39351&ion=section4
@@ -503,6 +547,15 @@ for row in cur.fetchall():
             qry = "UPDATE article_title set is_downloaded = %d where id = %d ;" % (return_val, row[0])
             cur.execute(qry)
             conn.commit()
+    else:
+        # is_downloaeded
+        # 0: not downloaded
+        # 1: downloaeded
+        # 2: not need to download
+        # 3: 404 not found
+        qry = "UPDATE article_title set is_downloaded = %d where id = %d ;" % (return_val, row[0])
+        cur.execute(qry)
+        conn.commit()
 
 
 
